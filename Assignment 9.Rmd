@@ -1,0 +1,84 @@
+---
+title: "Data 607 Assignment 9"
+author: "Jayden Jiang"
+date: "2024-12-11"
+output: html_document
+---
+## Library
+```{r}
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(tidyr)
+```
+
+## Introduction
+The New York Times web site provides a rich set of APIs, as described here: https://developer.nytimes.com/apis
+You’ll need to start by signing up for an API key.
+Your task is to choose one of the New York Times APIs, construct an interface in R to read in the JSON data, and
+transform it into an R DataFrame.
+
+Here I chose Book API, which provides information about book reviews and The New York Times best seller list. 
+
+## Store API Key
+```{r}
+# Store the API Key securely
+file.edit("~/.Renviron")
+api_key <- Sys.getenv("nyt_api_key")
+if (api_key == "") {
+  stop("API Key not found.")
+}
+```
+
+## Transform from JSON to R Dataframe 
+```{r}
+
+best_sellers <- paste0("https://api.nytimes.com/svc/books/v3/lists/full-overview.json?api-key=", api_key)
+
+response <- GET(best_sellers)
+if (http_status(response)$category != "Success") {
+  stop("Failed to retrive data.")
+}
+
+books_content<- content(response, as = "text", encoding = "UTF-8")
+
+books_data <- fromJSON(books_content)
+
+books_df <- books_data$results$lists %>%
+  unnest(col = c(books)) %>%
+  as.data.frame()
+
+glimpse(books_df)
+```
+## Clean and Tidy Data For Top 10 Fiction & Non-Fiction
+```{r}
+# Clean data
+clean_books_df <- books_df %>%
+  select(list_name, title, author, rank, rank_last_week, weeks_on_list, description, publisher, book_image, buy_links)
+head(clean_books_df)
+```
+
+
+```{r}
+# Find Top-Ranked Fictions
+top_10_fiction <- clean_books_df %>%
+  filter(list_name == "Combined Print and E-Book Fiction") %>%
+  arrange(rank) %>%
+  slice_head(n = 10) %>%
+  select(rank, list_name, title)
+top_10_fiction
+```
+```{r}
+#Find Top-Ranked Non-Fictions
+top_10_nonfiction <- clean_books_df %>%
+  filter(list_name == "Combined Print and E-Book Nonfiction") %>%
+  arrange(rank) %>%
+  slice_head(n = 10) %>%
+  select(rank, list_name, title)
+top_10_nonfiction
+```
+## Conclusion 
+For this assignment, we aiming to transform JSON format data from The New York Time API into R data frame. As well as to have ability to continuously working with the data. 
+
+
+
